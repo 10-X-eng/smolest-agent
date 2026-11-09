@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# ask: sends one question to the AI and prints its answer. No tools, no memory.
+# How to use:  ./ask "your question"
+# Settings you can change: MODEL (which AI), BASE_URL (where it runs), API_KEY (password, if needed).
+# Out of the box it uses an AI running on this computer through Ollama, which needs no key.
+
+# Step 1: Package the question the way the AI service expects it.
+#         (--arg keeps your text exactly as typed, even if it has quotes or symbols in it.)
+jq -n --arg m "${MODEL:-granite4.1:3b}" --arg p "$*" '{model:$m, messages:[{role:"user", content:$p}]}' |
+# Step 2: Send it to the AI service over the web.
+curl -sS "${BASE_URL:-http://localhost:11434/v1}/chat/completions" \
+  -H "Authorization: Bearer ${API_KEY:-}" -H 'Content-Type: application/json' -d @- |
+# Step 3: Print only the answer text. If there's no answer, print everything that came back,
+#         so you can see what went wrong.
+jq -r '.choices[0].message.content // .'

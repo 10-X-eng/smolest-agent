@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# tools/write_file: lets the AI create a file, or replace one that already exists.
+# Follows the same two rules as every tool (see tools/bash).
+
+# Rule 1: describe this tool to the AI. It needs two things: which file, and what to put in it.
+if [ "$1" = --schema ]; then
+  echo '{"description":"Create or overwrite a file with the given content.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path of the file to write"},"content":{"type":"string","description":"Full new content of the file"}},"required":["path","content"]}}'
+  exit
+fi
+
+# Rule 2: get the file name and contents, make any missing folders, write the contents exactly
+# as given (nothing extra added), then say how much was written and where.
+args=$(cat); path=$(jq -r .path <<<"$args")
+mkdir -p -- "$(dirname -- "$path")" && jq -j .content <<<"$args" > "$path" && echo "wrote $(wc -c < "$path") bytes to $path"

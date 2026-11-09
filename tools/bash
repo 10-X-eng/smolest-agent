@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# tools/bash: lets the AI run commands on this computer, like typing them in a terminal.
+#
+# How every tool works (they all follow these same two rules):
+#   1. Run with --schema, it prints a short description of itself so the AI knows what it does.
+#   2. Run normally, it reads its instructions from the AI, does the job, and prints the result.
+# The tool's name is its file name.
+
+# Rule 1: describe this tool to the AI. It needs one thing: the command to run.
+if [ "$1" = --schema ]; then
+  echo '{"description":"Run a bash command and return its output.","parameters":{"type":"object","properties":{"command":{"type":"string","description":"The command to run"}},"required":["command"]}}'
+  exit
+fi
+
+# Rule 2: run the command and print whatever it outputs, including errors.
+# It gets stopped after 60 seconds (change with TOOL_TIMEOUT), and it can't wait for typed input.
+timeout "${TOOL_TIMEOUT:-60}" bash -c "$(jq -r .command)" </dev/null 2>&1

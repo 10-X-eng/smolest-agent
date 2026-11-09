@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# tools/read_file: lets the AI read a file.
+# Follows the same two rules as every tool (see tools/bash).
+
+# Rule 1: describe this tool to the AI. It needs one thing: which file to read.
+if [ "$1" = --schema ]; then
+  echo '{"description":"Read a text file and return its contents.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path of the file to read"}},"required":["path"]}}'
+  exit
+fi
+
+# Rule 2: print the file. If it can't (for example, the file doesn't exist), the error goes to the AI.
+cat -- "$(jq -r .path)"

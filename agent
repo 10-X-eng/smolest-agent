@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# agent: lets the AI do things on this computer (run commands, read files, write files),
+#        not just talk. It keeps going back and forth with the AI until the job is done.
+# How to use:  ./agent "do this task"     give it one task
+#              ./agent                    chat with it (press Ctrl-D to quit)
+# Settings you can change:
+#   MODEL, BASE_URL, API_KEY  which AI to use, where it runs, and its password (if needed)
+#   PROVIDER                  which file in providers/ talks to the AI (default: openai)
+#   SYSTEM                    standing instructions given to the AI before your request
+#   YOLO=1                    let the AI use tools without asking you first
+#   SHOW_LINES                how many lines of each step to show on screen (default: 10)
+
+# ---- Getting ready -------------------------------------------------------------------
+DIR=$(dirname "$(readlink -f "$0")")           # find the folder this script is in
+source "$DIR/providers/${PROVIDER:-openai}.sh"  # load the code that talks to the AI
+HIST=$(mktemp); trap 'rm -f "$HIST"' EXIT       # make a scratch file to hold the conversation
+                                                # (deleted automatically when we quit)
+
+# ---- Find the tools ------------------------------------------------------------------
+# Every program in the tools/ folder is a tool the AI can use. We ask each one to describe
+# itself, and name it after its file, so the AI asks for tools by their file names.
+TOOLS=$(for t in "$DIR"/tools/*; do [ -x "$t" ] && "$t" --schema | jq -c --arg n "${t##*/}" '.name=$n'; done |
+  jq -sc 'map({type:"function", function:.})')
+
+# ---- show: print a step on screen so you can follow along ------------------------------
+# Prints a colored title, then the first few lines of text. Long text gets cut short with a
+# note saying how long it really was. (This goes to the screen only, never to the AI.)
+show() {  # usage: show "title" "text"
+  local n=${SHOW_LINES:-10}
+  printf '\e[36m%s\e[0m\n' "$1" >&2
+  head -n "$n" <<<"$2" | sed 's/^/  │ /' >&2
+  (( $(wc -l <<<"$2") > n )) && echo "  │ … ($(wc -l <<<"$2") lines total)" >&2
+}
+
+# ---- Standing instructions: the first thing written in the conversation ------------------
+jq -nc --arg c "${SYSTEM:-You are a helpful assistant. Use the tools when they help answer the request.}" \
+  '{role:"system", content:$c}' >> "$HIST"
+
+# ---- turn: handle one request from you, from start to finish ---------------------------
+# The AI either answers, or asks us to use some tools. If it asks for tools, we use them, hand
+# back what they found, and ask the AI again. This repeats until it just answers.
+turn() {
+  jq -nc --arg c "$1" '{role:"user", content:$c}' >> "$HIST"   # write your request into the conversation
+
+  while :; do
+    msg=$(llm) || return              # send the whole conversation to the AI; stop if that fails
+    echo "$msg" >> "$HIST"            # write the AI's reply into the conversation
+
+    # If the AI didn't ask for any tools, its reply is the final answer: show it and stop.
+    calls=$(jq -c '.tool_calls // [] | .[]' <<<"$msg")
+    [ -z "$calls" ] && { show "◆ answer" "$(jq -r '.content // ""' <<<"$msg")"; return; }
+
+    # Sometimes the AI also says something while asking for tools. Show it if it did.
+    text=$(jq -r '.content // ""' <<<"$msg"); [ -n "$text" ] && show "◆ model" "$text"
+
+    # Go through each tool the AI asked for, one at a time.
+    while read -r call; do
+      name=$(jq -r .function.name <<<"$call")     # which tool it wants
+      args=$(jq -r '.function.arguments | if type=="string" then . else tojson end' <<<"$call")  # what to give the tool
+      show "▶ tool call: $name" "$args"
+
+      if [[ ! $name =~ ^[A-Za-z0-9_-]+$ ]] || [ ! -x "$DIR/tools/$name" ]; then
+        out="error: no tool named '$name'"     # the AI asked for a tool we don't have
+      elif [ -z "$YOLO" ] && { read -rp "  run it? [y/N] " ok </dev/tty; [ "$ok" != y ]; }; then
+        out="the user declined to run this tool"   # we asked you first, and you said no
+      else
+        out=$(printf '%s' "$args" | "$DIR/tools/$name" 2>&1 | head -c 20000)   # use the tool; keep at most 20 KB of what it says
+      fi
+      show "◀ result" "$out"
+
+      # Write what the tool said into the conversation, tagged so the AI knows which request it answers.
+      jq -Rsc --arg id "$(jq -r .id <<<"$call")" '{role:"tool", tool_call_id:$id, content:.}' <<<"$out" >> "$HIST"
+    done <<<"$calls"
+  done                                  # back to the top: the AI now sees the tool results
+}
+
+# ---- Start here ----------------------------------------------------------------------
+# If you typed a task after ./agent, do just that task. Otherwise keep asking for requests
+# until you press Ctrl-D.
+if (( $# )); then turn "$*"
+else while read -rep $'\e[33m> \e[0m' q; do [ -n "$q" ] && turn "$q"; done
+fi
