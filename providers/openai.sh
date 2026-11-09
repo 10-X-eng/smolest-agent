@@ -7,7 +7,7 @@
 
 llm() {
   # Package the model name, the whole conversation and the tool list into one request.
-  jq -sc --arg m "${MODEL:-granite4.1:3b}" --argjson t "$TOOLS" '{model:$m, messages:., tools:$t}' "$HIST" |
+  jq -sc --arg m "${MODEL:-qwen3.5:9b}" --argjson t "$TOOLS" '{model:$m, messages:., tools:$t}' "$HIST" |
   # Send it to the AI service.
   curl -sS "${BASE_URL:-http://localhost:11434/v1}/chat/completions" \
     -H "Authorization: Bearer ${API_KEY:-}" -H 'Content-Type: application/json' -d @- |

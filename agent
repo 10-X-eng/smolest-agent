@@ -33,7 +33,9 @@ show() {  # usage: show "title" "text"
 }
 
 # ---- Standing instructions: the first thing written in the conversation ------------------
-jq -nc --arg c "${SYSTEM:-You are a helpful assistant. Use the tools when they help answer the request.}" \
+# Telling the AI which folder it's in, and to look before guessing file names, helps stop it
+# from making up files that don't exist.
+jq -nc --arg c "${SYSTEM:-You are a helpful assistant working in the folder $PWD. Use the tools when they help answer the request. Don't guess file names: if you're not sure a file exists, look in the folder first. If a tool gives an error, try to fix the problem and try again.}" \
   '{role:"system", content:$c}' >> "$HIST"
 
 # ---- turn: handle one request from you, from start to finish ---------------------------

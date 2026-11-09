@@ -6,7 +6,7 @@
 
 # Step 1: Package the question the way the AI service expects it.
 #         (--arg keeps your text exactly as typed, even if it has quotes or symbols in it.)
-jq -n --arg m "${MODEL:-granite4.1:3b}" --arg p "$*" '{model:$m, messages:[{role:"user", content:$p}]}' |
+jq -n --arg m "${MODEL:-qwen3.5:9b}" --arg p "$*" '{model:$m, messages:[{role:"user", content:$p}]}' |
 # Step 2: Send it to the AI service over the web.
 curl -sS "${BASE_URL:-http://localhost:11434/v1}/chat/completions" \
   -H "Authorization: Bearer ${API_KEY:-}" -H 'Content-Type: application/json' -d @- |

@@ -10,7 +10,7 @@ no key needed), OpenAI, OpenRouter, llama.cpp, vLLM and others.
 
 ```bash
 git clone https://github.com/10-X-eng/smolest-agent && cd smolest-agent
-ollama pull granite4.1:3b            # or any model that supports tool calling
+ollama pull qwen3.5:9b               # about 6.5 GB; or any model that supports tool calling
 
 ./ask "Say hi"                       # one plain call, no tools
 ./agent "How many .conf files are in /etc?"   # one task with tools
@@ -35,11 +35,11 @@ All settings are environment variables:
 
 | Variable       | Default                      | Meaning                                         |
 |----------------|------------------------------|-------------------------------------------------|
-| `MODEL`        | `granite4.1:3b`              | Model name                                      |
+| `MODEL`        | `qwen3.5:9b`                 | Model name (small models like 3B ones often guess wrong file names) |
 | `BASE_URL`     | `http://localhost:11434/v1`  | API base URL                                    |
 | `API_KEY`      | *(empty)*                    | API key, if your provider needs one             |
 | `PROVIDER`     | `openai`                     | Which file in `providers/` to use               |
-| `SYSTEM`       | a short helpful-assistant prompt | System prompt                               |
+| `SYSTEM`       | tells it the current folder and not to guess file names | System prompt        |
 | `YOLO`         | *(unset)*                    | Set to `1` to run tools without asking          |
 | `SHOW_LINES`   | `10`                         | Lines of each step shown on screen              |
 | `TOOL_TIMEOUT` | `60`                         | Seconds before a `bash` tool command is stopped |
